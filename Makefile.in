@@ -791,7 +791,7 @@ mksignames.o:	$(SUPPORT_SRC)mksignames.c
 # the signal name definitions at build time
 mksignames$(EXEEXT):	mksignames.o buildsignames.o
 	$(RM) $@
-	$(CC_FOR_BUILD) $(CCFLAGS_FOR_BUILD) ${LDFLAGS_FOR_BUILD} -o $@ mksignames.o buildsignames.o ${LIBS_FOR_BUILD}
+	$(CC_FOR_BUILD) ${LDFLAGS_FOR_BUILD} -o $@ mksignames.o buildsignames.o ${LIBS_FOR_BUILD}
 
 mksyntax$(EXEEXT):	${srcdir}/mksyntax.c buildconf.h syntax.h ${BASHINCDIR}/chartypes.h
 	$(RM) $@
