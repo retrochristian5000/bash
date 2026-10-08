@@ -171,7 +171,9 @@ CCFLAGS_FOR_BUILD = $(BASE_CCFLAGS) $(CPPFLAGS_FOR_BUILD) $(CFLAGS_FOR_BUILD)
 # LDFLAGS_FOR_BUILD explicitly.
 BASE_LDFLAGS = @LDFLAGS@ $(LOCAL_LDFLAGS)
 LDFLAGS = ${ADDON_LDFLAGS} ${BASE_LDFLAGS} ${PROFILE_FLAGS} ${STATIC_LD}
-LDFLAGS_FOR_BUILD = @LDFLAGS_FOR_BUILD@ $(LOCAL_LDFLAGS)
+# Build helpers use their own linker flags. Target-local flags (for example,
+# -arch arm64e) must not leak into CC_FOR_BUILD when cross-compiling.
+LDFLAGS_FOR_BUILD = @LDFLAGS_FOR_BUILD@
 
 ASAN_XCFLAGS = -fsanitize=address -fno-omit-frame-pointer
 ASAN_XLDFLAGS = -fsanitize=address
