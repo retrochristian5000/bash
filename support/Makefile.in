@@ -60,7 +60,8 @@ LOCAL_LDFLAGS = @LOCAL_LDFLAGS@
 LDFLAGS = @LDFLAGS@ $(LOCAL_LDFLAGS)
 # CFLAGS_FOR_BUILD is compile-only; link-required options belong in
 # LDFLAGS_FOR_BUILD explicitly.
-LDFLAGS_FOR_BUILD = @LDFLAGS_FOR_BUILD@ $(LOCAL_LDFLAGS)
+# Keep target-specific LOCAL_LDFLAGS out of build-machine helper links.
+LDFLAGS_FOR_BUILD = @LDFLAGS_FOR_BUILD@
 
 INCLUDES = -I${BUILD_DIR} -I${topdir}
 
