@@ -72,7 +72,8 @@ LIBS = @LIBS@
 # Keep compile-only flags out of linker invocations. Options required by
 # both compiler and linker must be supplied to the corresponding LDFLAGS.
 LDFLAGS = @LDFLAGS@ $(LOCAL_LDFLAGS)
-LDFLAGS_FOR_BUILD = @LDFLAGS_FOR_BUILD@ $(LOCAL_LDFLAGS)
+# Keep target-specific LOCAL_LDFLAGS out of build-machine helper links.
+LDFLAGS_FOR_BUILD = @LDFLAGS_FOR_BUILD@
 LOCAL_LDFLAGS = @LOCAL_LDFLAGS@
 LIBS_FOR_BUILD = @LIBS_FOR_BUILD@
 #LIBS_FOR_BUILD = $(LIBS)
