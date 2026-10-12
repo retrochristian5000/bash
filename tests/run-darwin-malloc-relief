@@ -1,0 +1,25 @@
+# Opt-in Darwin malloc pressure relief must not change shell semantics.
+# Linux and other platforms should ignore this Darwin-only setting.
+: ${THIS_SH:=../bash}
+
+program='n=0'
+i=0
+while test "$i" -lt 64; do
+  program="$program
+n=\$((n + 1))"
+  i=$((i + 1))
+done
+program="$program
+test \"\$n\" -eq 64 || exit 41
+printf 'darwin malloc relief ok\\n'"
+
+for interval in 0 1 2 7 bad 999999999999999999999999999999999999; do
+  output=$(BASH_DARWIN_MALLOC_RELIEF_INTERVAL="$interval" "${THIS_SH}" \
+    --noprofile --norc -c "$program" 2>&1)
+  status=$?
+  if test "$status" -ne 0 || test "$output" != 'darwin malloc relief ok'; then
+    printf 'Darwin malloc relief regression failed for interval %s (status %s): %s\n' \
+      "$interval" "$status" "$output" >&2
+    exit 1
+  fi
+done

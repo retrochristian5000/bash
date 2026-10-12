@@ -30,6 +30,14 @@
 #include "bashansi.h"
 #include <stdio.h>
 
+/* Darwin's system allocator can return *unused* pages to the OS.  Keep
+   this nonportable API out of other Bash builds. */
+#if defined (__APPLE__) && defined (__MACH__)
+#  include <limits.h>
+#  include <stdlib.h>
+#  include <malloc/malloc.h>
+#endif
+
 #include <signal.h>
 
 #include "bashintl.h"
@@ -54,6 +62,52 @@
 
 static void send_pwd_to_eterm (void);
 static sighandler alrm_catcher (int);
+
+#if defined (__APPLE__) && defined (__MACH__)
+/* Optional, non-interactive Darwin malloc pressure relief.  Parsing an
+   environment variable once avoids repeatedly calling getenv in the reader
+   loop.  This does not release live shell objects or lower peak RSS.
+
+   A value of N requests pressure relief after each N completed top-level
+   commands.  The default (unset/zero/invalid) is disabled so the cost and
+   benefit can be measured before enabling this in WHP's managed Bash. */
+static void
+darwin_relieve_malloc_pressure (void)
+{
+  static unsigned long interval, commands;
+  static int initialized;
+
+  if (initialized == 0)
+    {
+      const char *value;
+      unsigned long parsed;
+      unsigned int digit;
+
+      initialized = 1;
+      value = getenv ("BASH_DARWIN_MALLOC_RELIEF_INTERVAL");
+      if (value && *value)
+        {
+          parsed = 0;
+          while (*value >= '0' && *value <= '9')
+            {
+              digit = (unsigned int)(*value - '0');
+              if (parsed > (ULONG_MAX - digit) / 10)
+                break;
+              parsed = parsed * 10 + digit;
+              value++;
+            }
+          if (*value == '\0')
+            interval = parsed;
+        }
+    }
+
+  if (interactive_shell == 0 && interval != 0 && ++commands >= interval)
+    {
+      commands = 0;
+      (void)malloc_zone_pressure_relief (NULL, 0);
+    }
+}
+#endif /* Darwin allocator relief */
 
 /* Read and execute commands until EOF is reached.  This assumes that
    the input source has already been initialized. */
@@ -205,6 +259,11 @@ reader_loop (void)
 	}
       if (just_one_command)
 	EOF_Reached = EOF;
+#if defined (__APPLE__) && defined (__MACH__)
+      /* Call only after the completed command has been disposed of; never
+         from an allocator wrapper or a signal handler. */
+      darwin_relieve_malloc_pressure ();
+#endif
     }
   indirection_level--;
   return (last_command_exit_value);
