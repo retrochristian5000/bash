@@ -1,0 +1,34 @@
+name: WHP Bash hash allocation safety
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'hashlib.c'
+      - 'tests/whp-hash-overflow.py'
+      - '.github/workflows/whp-hash-memory.yml'
+  pull_request:
+    paths:
+      - 'hashlib.c'
+      - 'tests/whp-hash-overflow.py'
+      - '.github/workflows/whp-hash-memory.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hash-overflow:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out Bash fork
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Verify hash growth under Clang UBSan
+        env:
+          CC: clang
+        run: python3 tests/whp-hash-overflow.py
+      - name: Verify hash growth under GCC UBSan
+        env:
+          CC: gcc
+        run: python3 tests/whp-hash-overflow.py
