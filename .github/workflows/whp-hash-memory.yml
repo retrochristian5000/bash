@@ -1,16 +1,20 @@
-name: WHP Bash hash allocation safety
+name: WHP Bash allocation arithmetic
 
 on:
   push:
     branches: [master]
     paths:
       - 'hashlib.c'
+      - 'subst.c'
       - 'tests/whp-hash-overflow.py'
+      - 'tests/whp-subst-buffer.py'
       - '.github/workflows/whp-hash-memory.yml'
   pull_request:
     paths:
       - 'hashlib.c'
+      - 'subst.c'
       - 'tests/whp-hash-overflow.py'
+      - 'tests/whp-subst-buffer.py'
       - '.github/workflows/whp-hash-memory.yml'
   workflow_dispatch:
 
@@ -18,7 +22,7 @@ permissions:
   contents: read
 
 jobs:
-  hash-overflow:
+  checked-memory:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -32,3 +36,11 @@ jobs:
         env:
           CC: gcc
         run: python3 tests/whp-hash-overflow.py
+      - name: Verify substitution buffer growth under Clang UBSan
+        env:
+          CC: clang
+        run: python3 tests/whp-subst-buffer.py
+      - name: Verify substitution buffer growth under GCC UBSan
+        env:
+          CC: gcc
+        run: python3 tests/whp-subst-buffer.py
