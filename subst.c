@@ -40,6 +40,7 @@
 #define NEED_FPURGE_DECL
 
 #include "bashansi.h"
+#include <stdckdint.h>
 #include "posixstat.h"
 #include "bashintl.h"
 
@@ -745,18 +746,33 @@ sub_append_string (char *source, char *target, size_t *indx, size_t *size)
 {
   if (source)
     {
-      size_t n, srclen;
+      size_t end, required, capacity, padding, srclen;
 
       srclen = STRLEN (source);
-      if ((srclen + *indx) >= *size)
-	{
-	  n = srclen + *indx;
-	  n = (n + DEFAULT_ARRAY_SIZE) - (n % DEFAULT_ARRAY_SIZE);
-	  target = (char *)xrealloc (target, (*size = n));
-	}
+      /* Account for the terminating NUL before copying any bytes. Both
+         additions must be checked: wrapping either one would underallocate
+         the expansion buffer on 64-bit hosts, including Darwin arm64e. */
+      if (ckd_add (&end, *indx, srclen) ||
+          ckd_add (&required, end, (size_t)1))
+        {
+          fatal_error (_("string size overflow"));
+          return (target);
+        }
+      if (required > *size)
+        {
+          /* Preserve the 128-byte growth quantum without overflowing when
+             the rounded size would exceed SIZE_MAX. In that case use the
+             exact required capacity and let xrealloc handle allocation. */
+          padding = required % DEFAULT_ARRAY_SIZE;
+          padding = padding ? DEFAULT_ARRAY_SIZE - padding : 0;
+          if (ckd_add (&capacity, required, padding))
+            capacity = required;
+          target = (char *)xrealloc (target, capacity);
+          *size = capacity;
+        }
 
       FASTCOPY (source, target + *indx, srclen);
-      *indx += srclen;
+      *indx = end;
       target[*indx] = '\0';
 
       free (source);
