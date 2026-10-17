@@ -30,6 +30,7 @@
 #endif
 
 #include <stdio.h>
+#include <limits.h>
 
 #include "shell.h"
 #include "hashlib.h"
@@ -38,8 +39,9 @@
 #define HASH_REHASH_MULTIPLIER	4
 #define HASH_REHASH_FACTOR	2
 
+/* Compare using division: multiplying signed bucket counts can overflow. */
 #define HASH_SHOULDGROW(table) \
-  ((table)->nentries >= (table)->nbuckets * HASH_REHASH_FACTOR)
+  ((table)->nentries / HASH_REHASH_FACTOR >= (table)->nbuckets)
 
 /* an initial approximation */
 #define HASH_SHOULDSHRINK(table) \
@@ -69,7 +71,7 @@ hash_create (int buckets)
     buckets = DEFAULT_HASH_BUCKETS;
 
   new_table->bucket_array =
-    (BUCKET_CONTENTS **)xmalloc (buckets * sizeof (BUCKET_CONTENTS *));
+    (BUCKET_CONTENTS **)xreallocarray (NULL, buckets, sizeof (BUCKET_CONTENTS *));
   new_table->nbuckets = buckets;
   new_table->nentries = 0;
 
@@ -132,7 +134,7 @@ hash_rehash (HASH_TABLE *table, int nsize)
   old_bucket_array = table->bucket_array;
 
   table->nbuckets = nsize;
-  table->bucket_array = (BUCKET_CONTENTS **)xmalloc (table->nbuckets * sizeof (BUCKET_CONTENTS *));
+  table->bucket_array = (BUCKET_CONTENTS **)xreallocarray (NULL, table->nbuckets, sizeof (BUCKET_CONTENTS *));
   for (i = 0; i < table->nbuckets; i++)
     table->bucket_array[i] = (BUCKET_CONTENTS *)NULL;
 
@@ -155,9 +157,14 @@ hash_grow (HASH_TABLE *table)
 {
   int nsize;
 
-  nsize = table->nbuckets * HASH_REHASH_MULTIPLIER;
-  if (nsize > 0)		/* overflow */
-    hash_rehash (table, nsize);
+  /* Signed multiplication must be guarded *before* it occurs. The old
+     post-multiplication nsize > 0 check was undefined on overflow. */
+  if (table->nbuckets > 0 &&
+      table->nbuckets <= INT_MAX / HASH_REHASH_MULTIPLIER)
+    {
+      nsize = table->nbuckets * HASH_REHASH_MULTIPLIER;
+      hash_rehash (table, nsize);
+    }
 }
 
 static void
