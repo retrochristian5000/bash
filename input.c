@@ -237,7 +237,9 @@ fd_is_bash_input (int fd)
 int
 save_bash_input (int fd, int new_fd)
 {
-  int nfd;
+  int nfd, need_cloexec;
+
+  need_cloexec = 1;
 
   /* Sync the stream so we can re-read from the new file descriptor.  We
      might be able to avoid this by copying the buffered stream verbatim
@@ -247,7 +249,23 @@ save_bash_input (int fd, int new_fd)
 
   /* Now take care of duplicating the file descriptor that bash is
      using for input, so we can reinitialize it later. */
-  nfd = (new_fd == -1) ? fcntl (fd, F_DUPFD, 10) : new_fd;
+  if (new_fd != -1)
+    nfd = new_fd;
+  else
+    {
+#if defined (F_DUPFD_CLOEXEC)
+      /* This is a shell-private copy: install close-on-exec atomically so
+         concurrent execs cannot inherit the source script descriptor. */
+      nfd = fcntl (fd, F_DUPFD_CLOEXEC, 10);
+      if (nfd >= 0)
+        need_cloexec = 0;
+      else if (errno == EINVAL)
+        /* Older kernels may not implement a command in newer headers. */
+        nfd = fcntl (fd, F_DUPFD, 10);
+#else
+      nfd = fcntl (fd, F_DUPFD, 10);
+#endif
+    }
   if (nfd == -1)
     {
       if (fcntl (fd, F_GETFD, 0) == 0)
@@ -284,7 +302,8 @@ save_bash_input (int fd, int new_fd)
   if (default_buffered_input == fd)
     default_buffered_input = nfd;
 
-  SET_CLOSE_ON_EXEC (nfd);
+  if (need_cloexec)
+    SET_CLOSE_ON_EXEC (nfd);
   return nfd;
 }
 
